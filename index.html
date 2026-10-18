@@ -728,7 +728,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --muted-strong: #4d5156;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", "Helvetica Neue", Arial, sans-serif;
   --peek: 172px;
-  --topbar-h: 126px;   /* search box + mode switch; the full sheet stops below them */
+  --topbar-h: 70px;    /* the search box; the full sheet stops below it */
+  --hidden-h: 64px;    /* the sheet tucked away: handle and title only */
   color-scheme: light;
 }
 
@@ -870,71 +871,54 @@ a { color: var(--accent); }
 input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; display: none; }
 .search .clear { display: none; width: 36px; height: 36px; border-radius: 50%; color: var(--muted); font-size: 18px; }
 .search.has-q .clear { display: grid; place-items: center; }
-.search .hotel-chip {
+/* Mode switch: two icon buttons inside the search box. */
+.modes {
   flex: none;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--accent-weak);
-  color: var(--accent-text);
-  border-radius: 20px;
-  height: 36px;
-  padding: 0 12px;
-  font-weight: 600;
-  font-size: 13px;
-  white-space: nowrap;
-  max-width: 46%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.search.has-q .hotel-chip { display: none; }
-
-.modes {
-  display: flex;
-  background: var(--surface);
-  border-radius: 24px;
-  box-shadow: var(--shadow);
-  padding: 4px;
-  max-width: 640px;
-  margin: 0 auto;
-  width: 100%;
   position: relative;
+  background: var(--surface-2);
+  border-radius: 20px;
+  padding: 3px;
+  height: 40px;
 }
 .modes button {
-  flex: 1;
-  height: 40px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--muted);
   position: relative;
   z-index: 1;
-  transition: color .25s;
+  width: 48px;
+  height: 34px;
+  border-radius: 17px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 2px;
+  transition: filter .25s;
+  filter: grayscale(.6);
 }
-.modes button.on { color: var(--accent-fg); }
+.modes button.on { filter: none; }
 .modes .ind {
   position: absolute;
-  top: 4px; bottom: 4px; right: 4px;
-  width: calc(50% - 4px);
-  border-radius: 20px;
-  background: var(--accent);
+  top: 3px; bottom: 3px; right: 3px;
+  width: 48px;
+  border-radius: 17px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   transition: transform .35s cubic-bezier(.2, .8, .2, 1);
   z-index: 0;
 }
-.modes.trip .ind { transform: translateX(-100%); }
+.modes.trip .ind { transform: translateX(-48px); }
 .modes .cnt {
-  min-width: 22px; height: 22px;
-  border-radius: 11px;
-  background: rgba(0, 0, 0, .12);
-  display: inline-grid; place-items: center;
-  font-size: 12px; padding: 0 6px;
+  position: absolute;
+  top: -4px; left: 0;
+  min-width: 17px; height: 17px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  display: grid; place-items: center;
+  font-size: 10.5px; font-weight: 700; padding: 0 4px;
   font-variant-numeric: tabular-nums;
 }
-.modes button.on .cnt { background: rgba(255, 255, 255, .28); }
+.modes .cnt:empty, .modes .cnt.zero { display: none; }
 
 .chips {
   display: flex;
@@ -1200,6 +1184,8 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 }
 .sheet.dragging { transition: none; }
 .sheet.half { transform: translateY(46%); }
+.sheet.hidden { transform: translateY(calc(100% - var(--hidden-h) - env(safe-area-inset-bottom, 0px))); }
+#app.sheet-hidden .leaflet-bottom.leaflet-right { bottom: calc(var(--hidden-h) + env(safe-area-inset-bottom, 0px) + 2px); }
 .sheet.full { transform: translateY(0); }
 .grab { flex: none; width: 100%; height: 22px; display: grid; place-items: center; cursor: grab; border-radius: 22px 22px 0 0; }
 .grab::after { content: ""; width: 40px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--fg) 28%, transparent); }
@@ -1450,6 +1436,10 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 /* ---- leaflet tweaks ---- */
 
 .leaflet-container { font-family: var(--font); }
+:root { --tile-filter: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tile-filter: invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.6); } }
+:root[data-theme="dark"] { --tile-filter: invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.6); }
+.leaflet-tile-pane { filter: var(--tile-filter); }
 .leaflet-container .leaflet-control-attribution { direction: ltr; font-size: 11px; background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--muted-strong); }
 .leaflet-container .leaflet-control-attribution a { color: var(--muted-strong); }
 .leaflet-bottom.leaflet-right { bottom: calc(var(--peek) + env(safe-area-inset-bottom, 0px) + 2px); transition: bottom .38s cubic-bezier(.2, .8, .2, 1); }
@@ -1497,12 +1487,11 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
       <div class="ico" aria-hidden="true">🔍</div>
       <input id="q" type="search" placeholder="חיפוש מקום או מנה…" autocomplete="off" aria-label="חיפוש">
       <button class="clear" id="clear-q" aria-label="נקה חיפוש">✕</button>
-      <button class="hotel-chip" id="go-hotel" title="המלון שלי"><span>🏨</span><span id="hotel-name"></span></button>
-    </div>
-    <div class="modes" id="modes" role="tablist" aria-label="מצב תצוגה">
-      <div class="ind"></div>
-      <button id="mode-explore" role="tab" aria-selected="true" aria-controls="sheet">🧭 גילוי</button>
-      <button id="mode-trip" role="tab" aria-selected="false" aria-controls="sheet">⭐ הטיול שלי <span class="cnt" id="pick-count">0</span></button>
+      <div class="modes" id="modes" role="tablist" aria-label="מצב תצוגה">
+        <div class="ind"></div>
+        <button id="mode-explore" role="tab" aria-selected="true" aria-controls="sheet" aria-label="גילוי" title="גילוי">🧭</button>
+        <button id="mode-trip" role="tab" aria-selected="false" aria-controls="sheet" aria-label="הטיול שלי" title="הטיול שלי">⭐<span class="cnt" id="pick-count">0</span></button>
+      </div>
     </div>
     <div class="chips" id="chips"></div>
   </header>
@@ -1597,7 +1586,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
  *
  * Data (places, hotels, trip meta) is injected at build time as window.MAP_DATA.
  * State lives in localStorage only. External services used at runtime:
- *   - CARTO / OpenStreetMap raster tiles (map)
+ *   - OpenStreetMap raster tiles (map; darkened with a CSS filter in dark mode)
  *   - routing.openstreetmap.de (walking routes, with a straight-line fallback)
  *   - nominatim.openstreetmap.org (address search for the hotel picker)
  *   - api.open-meteo.com (weather), api.frankfurter.app (CZK→ILS rate)
@@ -1869,29 +1858,18 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
   const map = L.map('map', { zoomControl: false, zoomSnap: 0.5, wheelPxPerZoomLevel: 90 });
   map.attributionControl.setPrefix('');
 
-  const ATTR_CARTO = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap<\/a> &copy; <a href="https://carto.com/attributions">CARTO<\/a>';
-  const TILE_SOURCES = {
-    light: { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', opts: { subdomains: 'abcd', maxZoom: 20, attribution: ATTR_CARTO } },
-    dark: { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_matter/{z}/{x}/{y}{r}.png', opts: { subdomains: 'abcd', maxZoom: 20, attribution: ATTR_CARTO } },
-    osm: { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap<\/a> contributors' } }
-  };
-  let tileLayer = null, tileMode = null, tileFallback = false, tileErrors = 0, tileLoads = 0, offlineWarned = false;
+  // OpenStreetMap's own tiles need no key; dark mode inverts them with --tile-filter in the CSS.
+  const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap<\/a> contributors';
+  let tileLayer = null, tileErrors = 0, tileLoads = 0, offlineWarned = false;
 
   function applyTiles() {
-    const want = tileFallback ? 'osm' : (isDark() ? 'dark' : 'light');
-    if (want === tileMode) return;
-    if (tileLayer) map.removeLayer(tileLayer);
-    const src = TILE_SOURCES[want];
-    tileMode = want; tileErrors = 0; tileLoads = 0;
-    tileLayer = L.tileLayer(src.url, src.opts).addTo(map);
+    if (tileLayer) return;
+    tileLayer = L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTR }).addTo(map);
     tileLayer.on('tileload', () => { tileLoads++; });
     tileLayer.on('tileerror', () => {
       tileErrors++;
-      if (!tileFallback && tileErrors >= 6 && tileLoads === 0) {
-        tileFallback = true;
-        toast('שרת המפה לא זמין, עובר למפה חלופית…');
-        applyTiles();
-      } else if (tileFallback && tileErrors >= 6 && tileLoads === 0 && !offlineWarned) {
+      if (tileErrors >= 6 && tileLoads === 0 && !offlineWarned) {
         offlineWarned = true;
         // In-app previews (WhatsApp, Files, mail) usually block the network; a real browser tab does not.
         toast(navigator.onLine === false ? 'המפה צריכה חיבור לאינטרנט' : 'המפה לא נטענת: כנראה הקובץ פתוח בתצוגה מקדימה. פתחו אותו בדפדפן (Safari / Chrome)');
@@ -2061,10 +2039,10 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     renderChips();
     renderList();
     syncAllMarkers();
-    if (m === 'trip') { if (sheetState === 'peek') setSheet('half'); fitPlaces(filtered()); }
+    if (m === 'trip') { if (sheetState === 'peek' || sheetState === 'hidden') setSheet('half'); fitPlaces(filtered()); }
     else flyHome();
   }
-  function updateCount() { $('#pick-count').textContent = state.picks.length; }
+  function updateCount() { const c = $('#pick-count'); c.textContent = state.picks.length; c.classList.toggle('zero', !state.picks.length); }
 
   // Search
 
@@ -2109,7 +2087,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     <\/div>`;
   }
   function footHtml() {
-    return `<div class="foot">דירוגים ושעות: Google Maps, נכון ל-${esc(META.data_date)}. זמני הליכה הם הערכה. מפה: © OpenStreetMap contributors, © CARTO.<\/div>`;
+    return `<div class="foot">דירוגים ושעות: Google Maps, נכון ל-${esc(META.data_date)}. זמני הליכה הם הערכה. מפה: © OpenStreetMap contributors.<\/div>`;
   }
   function renderList(opt = {}) {
     const list = filtered();
@@ -2192,7 +2170,42 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
   $('#info-back').addEventListener('click', () => showView('list'));
   $('#summary-back').addEventListener('click', () => showView('info'));
   $('#btn-info').addEventListener('click', () => { showView('info'); setSheet('full'); });
-  $('#go-hotel').addEventListener('click', () => { showView('hotel'); setSheet('half'); flyHome(); });
+
+  // Calendar: a day-and-time for a place, as a Google Calendar link or an .ics file
+
+  // Prague wall-clock time → UTC milliseconds (handles summer/winter time).
+  function pragueToUtc(isoDay, minute) {
+    const [y, m, d] = isoDay.split('-').map(Number);
+    const guess = Date.UTC(y, m - 1, d, Math.floor(minute / 60), minute % 60);
+    const parts = Object.fromEntries(PRAGUE_FMT.formatToParts(new Date(guess)).map(x => [x.type, x.value]));
+    const shown = Date.UTC(+parts.year, +parts.month - 1, +parts.day, parseInt(parts.hour, 10) % 24, +parts.minute);
+    return guess - (shown - guess);
+  }
+  const icsStamp = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  // The assigned trip day (or the first day), at the route's arrival time if a route covers it, else noon.
+  function calendarSlot(p) {
+    const d = state.days[p.id];
+    const day = Number.isInteger(d) ? d : 0;
+    const eta = routeInfo && routeInfo.etas && (routeInfo.day === 'all' || routeInfo.day === day) ? routeInfo.etas[p.id] : undefined;
+    const start = pragueToUtc(isoDate(dayDate(day)), Number.isFinite(eta) ? eta : 12 * 60);
+    return { start, end: start + (p.visit_min || 60) * 60000, assigned: Number.isInteger(d) };
+  }
+  function calendarText(p) {
+    return [p.sub, p.addr, gmapsPlace(p)].filter(Boolean).join('\n');
+  }
+  function googleCalendarUrl(p) {
+    const { start, end } = calendarSlot(p);
+    const q = new URLSearchParams({ action: 'TEMPLATE', text: p.name, dates: `${icsStamp(start)}/${icsStamp(end)}`, details: calendarText(p), location: [p.name, p.addr].filter(Boolean).join(', ') });
+    return 'https://calendar.google.com/calendar/render?' + q.toString();
+  }
+  function icsFile(p) {
+    const { start, end } = calendarSlot(p);
+    const e = t => String(t || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//prague-pocket-map//HE', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+      `UID:${p.id}-${start}@prague-pocket-map`, `DTSTAMP:${icsStamp(Date.now())}`, `DTSTART:${icsStamp(start)}`, `DTEND:${icsStamp(end)}`,
+      `SUMMARY:${e(p.name)}`, `LOCATION:${e([p.name, p.addr].filter(Boolean).join(', '))}`, `DESCRIPTION:${e(calendarText(p))}`,
+      `GEO:${p.lat};${p.lng}`, `URL:${gmapsPlace(p)}`, 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
+  }
 
   // Place card
 
@@ -2212,7 +2225,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     drawWalkLine(p);
     renderDetail(p);
     showView('detail');
-    if (sheetState === 'peek') setSheet('half');
+    if (sheetState === 'peek' || sheetState === 'hidden') setSheet('half');
     flyToPlace(p);
   }
   function closeDetail(backToList) {
@@ -2292,6 +2305,8 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
         <a class="act" href="${esc(gmapsWalk(o, p))}" target="_blank" rel="noopener">🧭 ניווט ${o.me ? 'ממני' : 'מהמלון'}<\/a>
         <a class="act" href="${esc(streetView(p))}" target="_blank" rel="noopener">👁 Street View<\/a>
         ${p.web ? `<a class="act" href="${esc(p.web)}" target="_blank" rel="noopener">🌐 אתר<\/a>` : `<a class="act" href="${esc(wazeLink(p))}" target="_blank" rel="noopener">🚗 Waze<\/a>`}
+        <a class="act" id="cal-google" href="${esc(googleCalendarUrl(p))}" target="_blank" rel="noopener">📅 Google Calendar<\/a>
+        <button type="button" class="act" id="cal-ics">📅 יומן iPhone<\/button>
       <\/div>
       ${p.why ? `<div class="sec"><h3>למה זה מומלץ<\/h3><p>${esc(p.why)}<\/p><\/div>` : ''}
       ${p.must && p.must.length ? `<div class="sec"><h3>${mustTitle}<\/h3><div class="tags">${p.must.map(t => `<span class="tag">${esc(t)}<\/span>`).join('')}<\/div><\/div>` : ''}
@@ -2307,6 +2322,9 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
       ${p.src && p.src.length ? `<div class="sec src">מקורות: ${p.src.map(s => `<a href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.n)}<\/a>`).join(' · ')}<\/div>` : ''}`;
 
     $('#pick-btn').addEventListener('click', () => togglePick(p.id));
+    const calNote = () => { if (!calendarSlot(p).assigned) toast('המקום לא משויך ליום, אז האירוע נקבע ליום הראשון של הטיול'); };
+    $('#cal-google').addEventListener('click', calNote);
+    $('#cal-ics').addEventListener('click', () => { calNote(); downloadFile(`${p.id}.ics`, icsFile(p), 'text/calendar;charset=utf-8'); });
     $$('#detail-body .dayc button').forEach(b => b.addEventListener('click', () => {
       if (b.dataset.day === 'x') delete state.days[p.id]; else state.days[p.id] = parseInt(b.dataset.day, 10);
       saveState(); renderDetail(p, { keepScroll: true }); renderChips();
@@ -2331,16 +2349,20 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
   let sheetState = 'peek';
   const sabEl = $('#sab');
   function sheetPeekPx() { return (parseFloat(getComputedStyle(root).getPropertyValue('--peek')) || 172) + (sabEl ? sabEl.offsetHeight : 0); }
+  function sheetHiddenPx() { return (parseFloat(getComputedStyle(root).getPropertyValue('--hidden-h')) || 64) + (sabEl ? sabEl.offsetHeight : 0); }
   function sheetVisiblePx() {
     const h = sheet.getBoundingClientRect().height;
-    return sheetState === 'full' ? h : sheetState === 'half' ? h * 0.54 : sheetPeekPx();
+    return sheetState === 'full' ? h : sheetState === 'half' ? h * 0.54 : sheetState === 'hidden' ? sheetHiddenPx() : sheetPeekPx();
   }
+  // Positions from lowest to highest; a swipe moves one step (a fast fling two).
+  const SHEET_STEPS = ['hidden', 'peek', 'half', 'full'];
   function setSheet(s) {
     sheetState = s;
-    sheet.classList.remove('half', 'full');
+    sheet.classList.remove('half', 'full', 'hidden');
     if (s !== 'peek') sheet.classList.add(s);
     sheet.style.transform = '';
     $('#app').classList.toggle('sheet-full', s === 'full');
+    $('#app').classList.toggle('sheet-hidden', s === 'hidden');
     $('#grab').setAttribute('aria-expanded', s !== 'peek');
     updateChrome();
   }
@@ -2350,9 +2372,11 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     $('#fabs').style.bottom = (v + 24) + 'px';
     $('#pickbar').style.bottom = (v + 24) + 'px';
   }
-  $('#grab').addEventListener('click', () => setSheet(sheetState === 'full' ? 'peek' : sheetState === 'peek' ? 'half' : 'full'));
+  $('#grab').addEventListener('click', () => setSheet({ hidden: 'peek', peek: 'half', half: 'full', full: 'peek' }[sheetState]));
+  // Tapping the title of a tucked-away sheet brings it back.
+  sheet.addEventListener('click', e => { if (sheetState === 'hidden' && !e.target.closest('button,a,input,textarea')) setSheet('peek'); });
   (function enableDrag() {
-    let y0 = 0, t0 = 0, startY = 0, dragging = false, h = 0, peek = 0, fromScroller = false;
+    let y0 = 0, t0 = 0, startY = 0, dragging = false, h = 0, fromScroller = false;
     function onStart(e) {
       if (e.target.closest('textarea,input,select')) return;
       const scroller = e.target.closest('.sheet-body,.d-body');
@@ -2361,7 +2385,6 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
       const t = e.touches ? e.touches[0] : e;
       y0 = t.clientY; t0 = Date.now();
       h = sheet.getBoundingClientRect().height;
-      peek = sheetPeekPx();
       startY = h - sheetVisiblePx();
       dragging = true;
       sheet.classList.add('dragging');
@@ -2372,7 +2395,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
       const dy = t.clientY - y0;
       // Swiping up on an already full sheet is a scroll, not a drag: hand the gesture back to the list.
       if (sheetState === 'full' && fromScroller && dy < 0) { dragging = false; sheet.classList.remove('dragging'); return; }
-      const ny = Math.max(0, Math.min(h - peek, startY + dy));
+      const ny = Math.max(0, Math.min(h - sheetHiddenPx(), startY + dy));
       sheet.style.transform = `translateY(${ny}px)`;
       if (e.cancelable && Math.abs(dy) > 6) e.preventDefault();
     }
@@ -2384,9 +2407,10 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
       const dy = t.clientY - y0;
       const vel = dy / Math.max(1, Date.now() - t0);
       if (Math.abs(dy) < 8) { sheet.style.transform = ''; updateChrome(); return; }
+      const i = SHEET_STEPS.indexOf(sheetState);
       let next = sheetState;
-      if (vel < -0.35 || dy < -80) { next = sheetState === 'peek' ? 'half' : 'full'; if (vel < -1.1) next = 'full'; }
-      else if (vel > 0.35 || dy > 80) { next = sheetState === 'full' ? 'half' : 'peek'; if (vel > 1.1) next = 'peek'; }
+      if (vel < -0.35 || dy < -80) next = SHEET_STEPS[Math.min(3, i + (vel < -1.1 ? 2 : 1))];
+      else if (vel > 0.35 || dy > 80) next = SHEET_STEPS[Math.max(0, i - (vel > 1.1 ? 2 : 1))];
       setSheet(next);
     }
     sheet.addEventListener('touchstart', onStart, { passive: true });
@@ -2551,7 +2575,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     const res = await fetchRoute(points);
     // The user may have navigated away or asked for another route while we waited.
     if (seq !== routeSeq || currentView !== 'route' || state.mode !== 'trip') return;
-    routeInfo = { start, ordered, points, res };
+    routeInfo = { start, ordered, points, res, day: state.dayTab, etas: {} };
 
     const glow = L.polyline(res.coords, { className: 'route-glow', color: '#fff', weight: 9, opacity: 0.9, interactive: false }).addTo(map);
     const line = L.polyline(res.coords, { className: 'route-line', color: 'var(--accent)', weight: 5, opacity: 0.95, interactive: false }).addTo(map);
@@ -2589,6 +2613,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     ordered.forEach((p, i) => {
       const leg = res.legs[i];
       t += leg.min;
+      routeInfo.etas[p.id] = t;
       const st = openStatus(p, wd, t);
       const warn = st.k === 'closed' ? '<span class="mini closed">סגור בשעה זו<\/span>' : st.k === 'soon' ? `<span class="mini soon">${esc(st.t)}<\/span>` : '';
       rows.push(`<button type="button" class="stop" data-id="${p.id}"><div class="n">${i + 1}<\/div><div class="tx"><div class="leg">🚶 ${fmtMin(leg.min)} · ${fmtDist(leg.dist)}<\/div><div class="nm"><span class="lat">${esc(p.name)}<\/span> ${warn}<\/div><div class="ds">הגעה ~${fmtEta(t)} · ${esc((catById[p.cat] || {}).name || '')}${p.visit_min ? ` · שהייה ${fmtMin(p.visit_min)}` : ''}<\/div><\/div><\/button>`);
@@ -2648,7 +2673,6 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
     state.hotel = h;
     saveState();
     hotelMarker.setLatLng([h.lat, h.lng]);
-    $('#hotel-name').textContent = h.he || h.name;
     recomputeDistances();
     clearRoute();
     renderChips(); renderList();
@@ -3026,7 +3050,6 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
   }
   function refreshAfterStateChange() {
     hotelMarker.setLatLng([hotel().lat, hotel().lng]);
-    $('#hotel-name').textContent = hotel().he || hotel().name;
     recomputeDistances(); updateCount(); syncAllMarkers(); renderChips(); renderList();
   }
   function applyPlan(o) {
@@ -3104,7 +3127,6 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
   map.on('zoomend', () => { const z = map.getZoom(); $$('.pin-wrap').forEach(el => el.classList.toggle('lbl', z >= 16.5)); });
 
   recomputeDistances();
-  $('#hotel-name').textContent = hotel().he || hotel().name;
   syncModeSwitch();
   $('#mode-explore').addEventListener('click', () => setMode('explore'));
   $('#mode-trip').addEventListener('click', () => setMode('trip'));
@@ -3124,7 +3146,7 @@ window.MAP_DATA = {"meta":{"built":"2026-10-17","trip":{"start":null,"nights":3}
   setInterval(() => { if (currentView === 'list') renderList({ quiet: true }); }, 60000);
 
   // Exposed for the end-to-end tests and for poking around in the console.
-  window.app = { state, places: PLACES, selectPlace, buildRoute, setHotel, togglePick, openStatus, orderStops, buildCsv, summaryRows, applyPlan, encodePlan, decodePlan };
+  window.app = { state, places: PLACES, selectPlace, buildRoute, setHotel, togglePick, openStatus, orderStops, buildCsv, summaryRows, applyPlan, encodePlan, decodePlan, googleCalendarUrl, icsFile, setSheet };
 })();
 
 </script>
