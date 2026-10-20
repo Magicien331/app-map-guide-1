@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="מפת פראג">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
@@ -1584,6 +1585,53 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 .toast-btn { flex: none; color: inherit; font-weight: 800; border: 1.5px solid currentColor; border-radius: 14px; height: 30px; padding: 0 12px; }
 @media (prefers-reduced-motion: reduce) { .swipe .row, .swipe.collapsing { transition: none; } }
 
+/* first-run guide */
+.guide {
+  position: fixed; inset: 0; z-index: 900;
+  display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(20, 22, 26, .55);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  opacity: 0; transition: opacity .25s;
+}
+.guide.show { opacity: 1; }
+.guide[hidden] { display: none; }
+.guide-card {
+  width: 100%; max-width: 420px; max-height: 100%;
+  display: flex; flex-direction: column;
+  background: var(--surface); color: var(--fg);
+  border-radius: 24px; box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+  padding: 14px 18px 16px;
+  transform: translateY(14px) scale(.98); transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.guide.show .guide-card { transform: none; }
+.guide-top { display: flex; justify-content: space-between; align-items: center; min-height: 36px; }
+.guide-count { font-size: 12.5px; color: var(--muted-strong); font-variant-numeric: tabular-nums; }
+.guide-skip { height: 36px; padding: 0 14px; border-radius: 18px; color: var(--muted-strong); font-weight: 600; font-size: 14px; }
+.guide-skip:active { background: var(--surface-2); }
+.guide-step { overflow-y: auto; min-height: 0; padding: 4px 2px 6px; }
+.guide-step.in-next { animation: g-in-next .28s ease-out; }
+.guide-step.in-prev { animation: g-in-prev .28s ease-out; }
+@keyframes g-in-next { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+@keyframes g-in-prev { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+.g-icon { font-size: 44px; line-height: 1; text-align: center; margin: 4px 0 10px; }
+.guide-step h2 { margin: 0 0 10px; font-size: 20px; line-height: 1.3; text-align: center; text-wrap: balance; }
+.g-body { font-size: 15px; line-height: 1.6; }
+.g-body p { margin: 0 0 10px; }
+.g-steps { margin: 0 0 10px; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 8px; }
+.g-key { display: inline-block; padding: 0 8px; border-radius: 10px; background: var(--surface-2); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.guide-card:focus { outline: none; }
+.nw { white-space: nowrap; }
+.g-key.g-red { background: #d93025; color: #fff; }
+.g-tip { background: var(--accent-weak); color: var(--fg); border-radius: 12px; padding: 8px 12px; font-size: 14px; }
+.guide-dots { display: flex; justify-content: center; gap: 6px; padding: 8px 0 12px; }
+.guide-dots span { width: 7px; height: 7px; border-radius: 4px; background: var(--line); transition: width .25s, background .25s; }
+.guide-dots span.on { width: 20px; background: var(--accent); }
+.guide-nav { display: flex; gap: 10px; }
+.guide-nav .btn { flex: 1; height: 46px; border-radius: 23px; font-size: 15px; }
+.guide-nav .btn:disabled { opacity: .4; }
+@media (prefers-reduced-motion: reduce) { .guide, .guide-card, .guide-dots span { transition: none; } .guide-step.in-next, .guide-step.in-prev { animation: none; } }
+
 </style>
 </head>
 <body>
@@ -1680,6 +1728,21 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
       <div class="sheet-body" id="summary-body"></div>
     </div>
   </section>
+
+  <div class="guide" id="guide" role="dialog" aria-modal="true" aria-labelledby="guide-title" hidden>
+    <div class="guide-card" tabindex="-1">
+      <div class="guide-top">
+        <span class="guide-count" id="guide-count"></span>
+        <button type="button" class="guide-skip" id="guide-skip">דלגו</button>
+      </div>
+      <div class="guide-step" id="guide-step"></div>
+      <div class="guide-dots" id="guide-dots" aria-hidden="true"></div>
+      <div class="guide-nav">
+        <button type="button" class="btn" id="guide-prev">הקודם</button>
+        <button type="button" class="btn pri" id="guide-next">הבא</button>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
@@ -2182,6 +2245,7 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
     if (/^([01]\d|2[0-3]):[0-5]\d$/.test(saved.startTime)) state.startTime = saved.startTime;
     if (typeof saved.loop === 'boolean') state.loop = saved.loop;
     if (saved.swipeHintSeen === true) state.swipeHintSeen = true;
+    if (saved.onboarded === true) state.onboarded = true;
     if (isPlainObject(saved.tripInfo)) state.tripInfo = Object.fromEntries(TRIP_INFO_FIELDS.map(([k]) => [k, str(saved.tripInfo[k], 300)]).filter(([, v]) => v));
     if (saved.dayTab === 'all' || Number.isInteger(saved.dayTab)) state.dayTab = saved.dayTab;
     if (/^\d{4}-\d{2}-\d{2}$/.test(saved.tripStart) && !isNaN(new Date(saved.tripStart + 'T00:00:00'))) state.tripStart = saved.tripStart;
@@ -2202,7 +2266,7 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
       picks: state.picks, days: state.days, visited: state.visited, notes: state.notes,
       hotel: state.hotel, theme: state.theme, cats: [...state.cats], mode: state.mode,
       startTime: state.startTime, loop: state.loop, tripInfo: state.tripInfo, dayTab: state.dayTab,
-      tripStart: state.tripStart, nights: state.nights, swipeHintSeen: !!state.swipeHintSeen,
+      tripStart: state.tripStart, nights: state.nights, swipeHintSeen: !!state.swipeHintSeen, onboarded: !!state.onboarded,
       extra: state.picks.filter(id => EXTRA.has(id)).map(id => extraFields(EXTRA.get(id)))
     };
   }
@@ -2545,11 +2609,11 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
     });
     try { if (gl.isStyleLoaded()) apply(); else gl.once('load', apply); } catch (e) { /* style not ready; harmless */ }
   }
-  function setOsm(on) {
+  function setOsm(on, quiet = false) {
     osmOn = on;
     setBasemapPois(!on);
     osmWarnedZoom = false;
-    if (on) { osmCovered = null; loadOsmPlaces(); toast('מציג את כל המקומות באזור (OpenStreetMap, בלי דירוגים)'); }
+    if (on) { osmCovered = null; loadOsmPlaces(); if (!quiet) toast('מציג את כל המקומות באזור (OpenStreetMap, בלי דירוגים)'); }
     syncAllMarkers();
     renderChips();
   }
@@ -3660,6 +3724,7 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
         <button class="btn pri" id="share-btn">🔗 שיתוף התוכנית<\/button>
         <button class="btn" id="load-plan-btn">📥 טעינת תוכנית מקישור<\/button>
         <button class="btn" id="summary-btn">🏁 סיכום הטיול<\/button>
+        <button class="btn" id="guide-btn">📖 מדריך שימוש<\/button>
         <button class="btn" id="export-btn">💾 גיבוי (JSON)<\/button>
         <button class="btn" id="import-btn">📂 שחזור מגיבוי<\/button>
         <button class="btn" id="reset-btn">🗑️ אפס תוכנית<\/button>
@@ -3686,6 +3751,7 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
       if (text && !offerPlan(text)) toast('לא נמצאה תוכנית בטקסט הזה');
     });
     $('#summary-btn').addEventListener('click', () => showView('summary'));
+    $('#guide-btn').addEventListener('click', openGuide);
     $('#export-btn').addEventListener('click', () => downloadFile(`prague-trip-backup-${isoDate(new Date())}.json`, JSON.stringify(exportState(), null, 2), 'application/json'));
     $('#import-btn').addEventListener('click', () => $('#import-file').click());
     const reset = $('#reset-btn');
@@ -3902,6 +3968,102 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* some file:// contexts refuse */ }
   }
 
+  // First-run guide: a few cards on installing and using the app; it can be skipped and reopened from ℹ️.
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  function installStep() {
+    if (isStandalone()) return { icon: '✅', title: 'האפליקציה כבר במסך הבית', html: '<p>פתחתם מהאייקון במסך הבית, וזה בדיוק המקום הנכון. מה שתבחרו יישמר כאן לאורך זמן.<\/p><p class="g-tip">💡 תמיד לפתוח מהאייקון הזה, לא מלשונית רגילה בדפדפן: לכל אחד מהם יש שמירה נפרדת.<\/p>' };
+    if (isIOS) return { icon: '📲', title: 'קודם כל: הוסיפו למסך הבית', html: `<ol class="g-steps">
+      <li>לחצו על כפתור השיתוף <span class="g-key">⬆️<\/span> בסרגל של Safari. בגרסאות חדשות הוא נמצא בתוך התפריט <span class="g-key">⋯<\/span><\/li>
+      <li>גללו ובחרו <span class="g-key">➕ הוספה למסך הבית<\/span><\/li>
+      <li>לחצו <span class="g-key">הוספה<\/span> ומעכשיו פתחו את המפה רק מהאייקון.<\/li><\/ol>
+      <p class="g-tip">💡 באייקון התוכנית שלכם נשמרת לאורך זמן ונפתחת במסך מלא. בלשונית רגילה של Safari השמירה נפרדת, ו-Safari עלול למחוק אותה אחרי שבוע בלי שימוש.<\/p>` };
+    if (isAndroid) return { icon: '📲', title: 'קודם כל: הוסיפו למסך הבית', html: `<ol class="g-steps">
+      <li>ב־Chrome לחצו על <span class="g-key">⋮<\/span> למעלה.<\/li>
+      <li>בחרו <span class="g-key">הוספה למסך הבית<\/span> או <span class="g-key">התקנת אפליקציה<\/span><\/li>
+      <li>פתחו את המפה מהאייקון שנוסף.<\/li><\/ol>
+      <p class="g-tip">💡 כך היא נפתחת במסך מלא והתוכנית שלכם נשמרת בטלפון.<\/p>` };
+    return { icon: '🔖', title: 'שמרו את הקישור', html: '<p>במחשב פשוט שמרו את הדף כסימנייה. בטלפון כדאי להוסיף אותו למסך הבית מתפריט השיתוף של הדפדפן.<\/p>' };
+  }
+  function guideSteps() {
+    return [
+      { icon: '🗺️', title: 'ברוכים הבאים למפת הכיס של פראג', html: '<p>כ-200 מקומות שנבחרו בקפידה סביב המלון: מסעדות, בתי קפה, ברים, אתרים, קניות ושוקי חג המולד. לכל מקום יש ביקורת קצרה בעברית, שעות, מחירים וקישורים ל־<span class="nw">Google Maps<\/span>.<\/p><p>ההדרכה לוקחת דקה. אפשר לדלג בכל רגע ולחזור אליה מ-<span class="g-key">ℹ️<\/span> ← מדריך שימוש.<\/p>' },
+      installStep(),
+      { icon: '🧭', title: 'שני מצבים, בתוך שורת החיפוש', html: `<p><span class="g-key">🧭<\/span> <b>גילוי<\/b>: כל המקומות על המפה וברשימה למטה.<\/p>
+        <p><span class="g-key">⭐<\/span> <b>הטיול שלי<\/b>: רק מה שבחרתם, מחולק לימים, עם מסלולי הליכה. המספר על הכוכב הוא כמה מקומות בחרתם.<\/p>` },
+      { icon: '📍', title: 'המפה והרשימה', html: `<p>הצ'יפים למעלה מסננים לפי קטגוריה. <span class="g-key">🔎 כל המקומות באזור<\/span> מוסיף מהאינטרנט את כל המסעדות, בתי הקפה והחנויות שסביבכם (נקודות עגולות קטנות, בלי ביקורת שלנו).<\/p>
+        <p>כשמתרחקים, מקומות קרובים מתקבצים לאייקון עם מספר. לחיצה עליו מתקרבת.<\/p>
+        <p>את הרשימה למטה גוררים למעלה ולמטה, ואפשר להחליק אותה כמעט עד הסוף כדי לראות את כל המפה.<\/p>` },
+      { icon: '⭐', title: 'הוספה לטיול', html: `<p>לחצו על מקום, במפה או ברשימה, ואז <span class="g-key">☆ הוסף לטיול שלי<\/span>. אחרי ההוספה בוחרים לו יום, מסמנים "ביקרנו" וכותבים הערה.<\/p>
+        <p>בכרטיס יש גם <span class="g-key">🗺️ הצג על המפה<\/span>, ניווט, תמונות ב־<span class="nw">Google Maps<\/span> והוספה ליומן.<\/p>` },
+      { icon: '↔️', title: 'הסרה מהטיול', html: '<p>ב<b>הטיול שלי<\/b> מחליקים מקום הצידה: החלקה קצרה מגלה כפתור <span class="g-key g-red">🗑️ הסר<\/span>, החלקה ארוכה מסירה מיד.<\/p><p>טעיתם? בהודעה שקופצת יש <span class="g-key">ביטול<\/span> שמחזיר את המקום עם היום שלו.<\/p>' },
+      { icon: '🚶', title: 'מסלול הליכה ליום', html: `<ol class="g-steps">
+        <li>ב<b>הטיול שלי<\/b> לחצו <span class="g-key">🗺️ בנה מסלול<\/span><\/li>
+        <li>בחרו יום וסמנו את המקומות שרוצים לראות בו.<\/li>
+        <li>לחצו <span class="g-key">חשבו מסלול<\/span> ותקבלו את הסדר הקצר ביותר מהמלון, זמני הגעה, ואזהרה אם משהו סגור באותה שעה.<\/li>
+        <li>משם אפשר לפתוח את כל המסלול ב־<span class="nw">Google Maps<\/span>.<\/li><\/ol>` },
+      { icon: 'ℹ️', title: 'מידע, הגדרות וגיבוי', html: `<p>בכפתור <span class="g-key">ℹ️<\/span>: תאריכי הטיול, החלפת מלון, מזג אוויר, ממיר קרונות לשקלים, שיתוף התוכנית וסיכום טיול בסוף.<\/p>
+        <p class="g-tip">🔒 כל מה שתבחרו נשמר רק בטלפון הזה, בלי חשבון ובלי שרת. לפני הנסיעה כדאי ללחוץ <span class="g-key">💾 גיבוי<\/span> ולשמור את הקובץ.<\/p>` }
+    ];
+  }
+  let guideAt = 0, guideList = [];
+  function openGuide() {
+    guideList = guideSteps();
+    guideAt = 0;
+    const g = $('#guide');
+    g.hidden = false;
+    requestAnimationFrame(() => g.classList.add('show'));
+    renderGuide();
+    $('#guide .guide-card').focus({ preventScroll: true });
+  }
+  function closeGuide() {
+    const g = $('#guide');
+    g.classList.remove('show');
+    setTimeout(() => { g.hidden = true; }, reduceMotion ? 0 : 250);
+    state.onboarded = true;
+    saveState();
+  }
+  function renderGuide(dir = 0) {
+    const st = guideList[guideAt];
+    const box = $('#guide-step');
+    box.innerHTML = `<div class="g-icon" aria-hidden="true">${st.icon}<\/div><h2 id="guide-title">${esc(st.title)}<\/h2><div class="g-body">${st.html}<\/div>`;
+    box.classList.remove('in-next', 'in-prev');
+    if (dir && !reduceMotion) { void box.offsetWidth; box.classList.add(dir > 0 ? 'in-next' : 'in-prev'); }
+    $('#guide-dots').innerHTML = guideList.map((_, i) => `<span class="${i === guideAt ? 'on' : ''}"><\/span>`).join('');
+    $('#guide-count').textContent = `${guideAt + 1} מתוך ${guideList.length}`;
+    $('#guide-prev').disabled = guideAt === 0;
+    const last = guideAt === guideList.length - 1;
+    $('#guide-next').textContent = last ? 'בואו נתחיל ✨' : 'הבא';
+    $('#guide-skip').hidden = last;
+  }
+  function guideGo(d) {
+    const n = guideAt + d;
+    if (n >= guideList.length) { closeGuide(); return; }
+    if (n < 0) return;
+    guideAt = n;
+    renderGuide(d);
+  }
+  $('#guide-next').addEventListener('click', () => guideGo(1));
+  $('#guide-prev').addEventListener('click', () => guideGo(-1));
+  $('#guide-skip').addEventListener('click', closeGuide);
+  $('#guide').addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeGuide();
+    else if (e.key === 'ArrowLeft') guideGo(1);    // RTL: left is "next"
+    else if (e.key === 'ArrowRight') guideGo(-1);
+  });
+  (function guideSwipe() {
+    let x0 = null, y0 = 0;
+    const card = $('#guide .guide-card');
+    card.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    card.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) guideGo(dx < 0 ? 1 : -1);   // swipe left = next, as in Hebrew apps
+    });
+  })();
+
   // Toast
 
   let toastTimer = null;
@@ -3958,12 +4120,19 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
   });
 
   recomputeDistances();
+  // Every launch opens on the full picture: explore mode, every category, curated and online places.
+  state.mode = 'explore';
+  state.cats = new Set(CATS.map(c => c.id));
+  osmOn = true;
+  setBasemapPois(false);
   syncModeSwitch();
   $('#mode-explore').addEventListener('click', () => setMode('explore'));
   $('#mode-trip').addEventListener('click', () => setMode('trip'));
   renderChips(); renderList(); updateChrome(); updateCount();
   loadWeather(); loadRate();
+  const planInLink = /plan=/.test(location.hash || '');
   try { checkPlanInHash(); } catch (e) { toast('הקישור לתוכנית לא תקין'); }
+  if (!state.onboarded && !planInLink) setTimeout(openGuide, reduceMotion ? 0 : 900);
 
   // A place id in the hash (#lokal-dlouha) opens that place; handy for links from notes.
   const hashPlaceId = () => { try { return decodeURIComponent((location.hash || '').slice(1)); } catch (e) { return ''; } };
@@ -3977,7 +4146,7 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
   setInterval(() => { if (currentView === 'list') renderList({ quiet: true }); }, 60000);
 
   // Exposed for the end-to-end tests and for poking around in the console.
-  window.app = { state, map, removeFromTrip, places: PLACES, extra: EXTRA, setOsm, osmPlace, mapStats: () => {
+  window.app = { state, map, removeFromTrip, openGuide, places: PLACES, extra: EXTRA, setOsm, osmPlace, mapStats: () => {
     let shown = 0; groups.forEach(g => { shown += g.getLayers().length; });
     return { shown, numbered: Object.keys(routeNums).length, groups: groups.size };
   }, selectPlace, buildRoute, setHotel, togglePick, openStatus, orderStops, buildCsv, summaryRows, applyPlan, encodePlan, decodePlan, googleCalendarUrl, icsFile, setSheet };
