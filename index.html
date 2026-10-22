@@ -1315,6 +1315,7 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 .pickbtn:active { transform: scale(.98); }
 .pickbtn.pop { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.cal-when { margin: -6px 0 14px; font-size: 12.5px; color: var(--muted); }
 .acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 0 14px; }
 .act {
   display: flex; align-items: center; justify-content: center; gap: 7px;
@@ -2980,23 +2981,61 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
     const day = Number.isInteger(d) ? d : 0;
     const eta = routeInfo && routeInfo.etas && (routeInfo.day === 'all' || routeInfo.day === day) ? routeInfo.etas[p.id] : undefined;
     const start = pragueToUtc(isoDate(dayDate(day)), Number.isFinite(eta) ? eta : 12 * 60);
-    return { start, end: start + (p.visit_min || 60) * 60000, assigned: Number.isInteger(d) };
+    return { start, end: start + (p.visit_min || 60) * 60000, assigned: Number.isInteger(d), day };
+  }
+  // Calendar apps lay out a title as one paragraph, and a Hebrew name with English in brackets
+  // comes out scrambled there, so the title is the Hebrew name alone and the English goes below.
+  function calendarTitle(p) {
+    const c = catById[p.cat];
+    return `${c && c.emoji ? c.emoji + ' ' : ''}${heName(p)}`;
+  }
+  function calendarLocation(p) {
+    const addr = String(p.addr || '').replace(/\s*\([^)]*\)/g, '').trim();
+    return [p.name, addr || 'Praha'].filter(Boolean).join(', ');
   }
   function calendarText(p) {
-    return [p.sub, p.addr, gmapsPlace(p)].filter(Boolean).join('\n');
+    const must = Array.isArray(p.must) ? p.must.slice(0, 2).join(' · ') : '';
+    return [
+      p.he && enName(p) !== p.he ? enName(p) : '',
+      p.sub,
+      p.hours_text && `🕒 ${p.hours_text}`,
+      p.price_note && `💰 ${p.price_note}`,
+      must && `✨ לא לפספס: ${must}`,
+      p.addr && `📍 ${p.addr}`
+    ].filter(Boolean).join('\n') + `\n\n🗺️ Google Maps: ${gmapsPlace(p)}\n🚗 Waze: ${wazeLink(p)}`;
+  }
+  function calendarWhen(p) {
+    const { start, day } = calendarSlot(p);
+    const t = Object.fromEntries(PRAGUE_FMT.formatToParts(new Date(start)).map(x => [x.type, x.value]));
+    return `${dayLabel(day)}, ${pad2(parseInt(t.hour, 10) % 24)}:${t.minute}`;
   }
   function googleCalendarUrl(p) {
     const { start, end } = calendarSlot(p);
-    const q = new URLSearchParams({ action: 'TEMPLATE', text: nameText(p), dates: `${icsStamp(start)}/${icsStamp(end)}`, details: calendarText(p), location: [p.name, p.addr].filter(Boolean).join(', ') });
+    const q = new URLSearchParams({ action: 'TEMPLATE', text: calendarTitle(p), dates: `${icsStamp(start)}/${icsStamp(end)}`, ctz: 'Europe/Prague', details: calendarText(p), location: calendarLocation(p) });
     return 'https://calendar.google.com/calendar/render?' + q.toString();
+  }
+  // iCalendar lines are folded at 75 bytes; the cut never splits a character.
+  function icsFold(line) {
+    const enc = new TextEncoder(), out = [];
+    let cur = '', size = 0;
+    for (const ch of line) {
+      const n = enc.encode(ch).length;
+      if (size + n > (out.length ? 74 : 75)) { out.push(cur); cur = ''; size = 0; }
+      cur += ch; size += n;
+    }
+    out.push(cur);
+    return out.join('\r\n ');
   }
   function icsFile(p) {
     const { start, end } = calendarSlot(p);
     const e = t => String(t || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//prague-pocket-map//HE', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    const q = t => String(t || '').replace(/["\r\n]/g, ' ');
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//prague-pocket-map//HE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
       `UID:${p.id}-${start}@prague-pocket-map`, `DTSTAMP:${icsStamp(Date.now())}`, `DTSTART:${icsStamp(start)}`, `DTEND:${icsStamp(end)}`,
-      `SUMMARY:${e(nameText(p))}`, `LOCATION:${e([p.name, p.addr].filter(Boolean).join(', '))}`, `DESCRIPTION:${e(calendarText(p))}`,
-      `GEO:${p.lat};${p.lng}`, `URL:${gmapsPlace(p)}`, 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
+      `SUMMARY:${e(calendarTitle(p))}`, `LOCATION:${e(calendarLocation(p))}`, `DESCRIPTION:${e(calendarText(p))}`,
+      `GEO:${p.lat};${p.lng}`,
+      `X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="${q(calendarLocation(p))}";X-APPLE-RADIUS=70;X-TITLE="${q(p.name)}":geo:${p.lat},${p.lng}`,
+      `URL:${gmapsPlace(p)}`, 'END:VEVENT', 'END:VCALENDAR', ''].map(icsFold).join('\r\n');
   }
 
   // Place card
@@ -3097,6 +3136,7 @@ window.MAP_DATA = {"meta":{"trip":{"start":null,"nights":3},"rates":{"czk_ils":0
         <a class="act" id="cal-google" href="${esc(googleCalendarUrl(p))}" target="_blank" rel="noopener">📅 Google Calendar<\/a>
         <button type="button" class="act" id="cal-ics">📅 יומן iPhone<\/button>
       <\/div>
+      <div class="cal-when">📅 ייכנס ליומן: ${esc(calendarWhen(p))} (שעון פראג)<br>את תאריכי הטיול משנים <span class="nw">ב-ℹ️<\/span><\/div>
       ${p.why ? `<div class="sec"><h3>למה זה מומלץ<\/h3><p>${esc(p.why)}<\/p><\/div>` : ''}
       ${p.must && p.must.length ? `<div class="sec"><h3>${mustTitle}<\/h3><div class="tags">${p.must.map(t => `<span class="tag">${esc(t)}<\/span>`).join('')}<\/div><\/div>` : ''}
       ${p.tips ? `<div class="sec"><h3>טיפים<\/h3><p>${esc(p.tips)}<\/p><\/div>` : ''}
